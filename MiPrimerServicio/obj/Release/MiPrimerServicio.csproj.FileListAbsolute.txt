@@ -1,0 +1,8 @@
+C:\Users\Joel\source\repos\MiPrimerServicio\MiPrimerServicio\bin\Release\MiPrimerServicio.exe.config
+C:\Users\Joel\source\repos\MiPrimerServicio\MiPrimerServicio\bin\Release\MiPrimerServicio.exe
+C:\Users\Joel\source\repos\MiPrimerServicio\MiPrimerServicio\bin\Release\MiPrimerServicio.pdb
+C:\Users\Joel\source\repos\MiPrimerServicio\MiPrimerServicio\obj\Release\MiPrimerServicio.csproj.AssemblyReference.cache
+C:\Users\Joel\source\repos\MiPrimerServicio\MiPrimerServicio\obj\Release\MiPrimerServicio.csproj.CoreCompileInputs.cache
+C:\Users\Joel\source\repos\MiPrimerServicio\MiPrimerServicio\obj\Release\MiPrimerServicio.exe
+C:\Users\Joel\source\repos\MiPrimerServicio\MiPrimerServicio\obj\Release\MiPrimerServicio.pdb
+C:\Users\Joel\source\repos\MiPrimerServicio\MiPrimerServicio\obj\Release\MiPrimerServicio.exe.config

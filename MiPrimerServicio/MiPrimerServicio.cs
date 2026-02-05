@@ -13,56 +13,34 @@ namespace MiPrimerServicio
 {
     public partial class MiPrimerServicio : ServiceBase
     {
+        private Servidor servidor;
+        private Thread hiloServidor;
+
         public MiPrimerServicio()
         {
             InitializeComponent();
             CanPauseAndContinue = false;
             CanStop = true;
+            AutoLog = false;
         }
 
         public void WriteEvent(string mensaje)
         {
-            const string nombre = "MiPrimerServicio"; // Nombre de la fuente de eventos.
-                                                      // Escribe el mensaje deseado en el visor de eventos
+            string nombre = "MiPrimerServicio";
             EventLog.WriteEntry(nombre, mensaje);
         }
 
-        private System.Timers.Timer timer;
         protected override void OnStart(string[] args)
         {
-            WriteEvent("Iniciando MiPrimerServicio mediante OnStart");
-            timer = new System.Timers.Timer();
-            timer.Interval = 10000; // cada 10 segundos
-            timer.Elapsed += this.TimerTick;
-            timer.Start();
-            Thread hilo = new Thread(() => new Servidor().InitServer());
-
+            servidor = new Servidor();
+            hiloServidor = new Thread(servidor.InitServer);
+            hiloServidor.IsBackground = true;
+            hiloServidor.Start();
         }
 
         protected override void OnStop()
         {
-            WriteEvent("Deteniendo MiPrimerServicio");
-            timer.Stop();
-            timer.Dispose();
-            t = 0;
-            new Servidor().ServerRunning = false;
-        }
-        protected override void OnPause()
-        {
-            WriteEvent("MiPrimerServicio en Pausa");
-            timer.Stop();
-        }
-        protected override void OnContinue()
-        {
-            WriteEvent("Continuando MiPrimerServicio");
-            timer.Start();
-        }
-
-        private int t = 0;
-        public void TimerTick(object sender, System.Timers.ElapsedEventArgs args)
-        {
-            WriteEvent($"MiPrimerServicio lleva ejecutándose {t} segundos.");
-            t += 10;
+            servidor.ServerRunning = false;
         }
 
 

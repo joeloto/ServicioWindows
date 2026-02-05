@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -12,147 +13,159 @@ namespace MiPrimerServicio
 {
     internal class Servidor
     {
-        public bool ServerRunning { set; get; } = true;
-        public int Port { get; set; } = 135;
-        public int[] puertos = { 135, 8888, 31416};
+        public bool ServerRunning { get; set; } = true;
+
         private Socket s;
 
+        private string origen = "MiPrimerServicio";
+
+        private string ruta1 = Path.Combine(Environment.ExpandEnvironmentVariables("%programdata%"), "MiPrimerServicio", "config.txt");
+
+        private string ruta2 = Path.Combine(Environment.ExpandEnvironmentVariables("%programdata%"), "MiPrimerServicio", "log.txt");
+
+        private int Port = 31416;
         public void InitServer()
         {
-            IPEndPoint ie = new IPEndPoint(IPAddress.Any, compruebaPuerto(puertos));
-            using (s = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
+            int puertoConfig = Leer();
+            int puertoFinal = -1;
+
+            if (CompruebaPuerto(puertoConfig))
             {
-                s.Bind(ie);
-                s.Listen(10);
-                Console.WriteLine($"Servidor iniciado. " +
-                $"Escuchando en {ie.Address}:{ie.Port}");
-                Console.WriteLine("Comandos disponibles: ");
-                Console.WriteLine("time: hora, minutos y segundos");
-                Console.WriteLine("date: dia, mes y ano");
-                Console.WriteLine("all: fecha y hora");
-                Console.WriteLine("close: debe ir acompañado de una password de 6 caracteres");
+                puertoFinal = puertoConfig;
+            }
+            else if (CompruebaPuerto(Port))
+            {
+                puertoFinal = Port;
+            }
+            else
+            {
+                EscribirEvento("Puerto ocupado. Servicio finalizado.");
+                ServerRunning = false;
+            }
 
-                while (ServerRunning)
+            EscribirEvento($"Servidor escuchando en el puerto {puertoFinal}");
+
+            s = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            IPEndPoint ie = new IPEndPoint(IPAddress.Any, puertoFinal);
+            s.Bind(ie);
+            s.Listen(10);
+
+            while (ServerRunning)
+            {
+                try
                 {
-                    try
-                    {
-                        Socket client = s.Accept();
-                        Thread hilo = new Thread(() => ClientDispatcher(client));
-                        hilo.Start();
-                        hilo.IsBackground = true;
+                    Socket cliente = s.Accept();
+                    Thread hiloCliente = new Thread(() => ClienteDispatcher(cliente));
+                    hiloCliente.IsBackground = true;
+                    hiloCliente.Start();
+                }
+                catch
+                {
+                    ServerRunning = false;
+                }
+            }
 
-                    }
-                    catch (SocketException e)
+            s.Close();
+        }
+
+        private void ClienteDispatcher(Socket cliente)
+        {
+            using (cliente)
+            {
+                IPEndPoint ieCliente = (IPEndPoint)cliente.RemoteEndPoint;
+
+                using (NetworkStream ns = new NetworkStream(cliente))
+                using (StreamReader sr = new StreamReader(ns, Encoding.UTF8))
+                using (StreamWriter sw = new StreamWriter(ns, Encoding.UTF8))
+                {
+                    sw.AutoFlush = true;
+                    string mensaje = sr.ReadLine();
+                    if (mensaje is null)
                     {
                         ServerRunning = false;
                     }
+                    Directory.CreateDirectory(Path.GetDirectoryName(ruta2));
+                    string linea = $"[{DateTime.Now:yyyy/MM/dd HH:mm:ss}-@{ieCliente.Address}:{ieCliente.Port}] {mensaje}";
+                    File.AppendAllText(ruta2, linea + Environment.NewLine);
+
+                    switch (mensaje.ToLower())
+                    {
+                        case "time":
+                            sw.WriteLine(DateTime.Now.ToLongTimeString());
+                            break;
+
+                        case "date":
+                            sw.WriteLine(DateTime.Now.ToLongDateString());
+                            break;
+
+                        case "all":
+                            sw.WriteLine(DateTime.Now.ToString());
+                            break;
+
+                        default:
+                            sw.WriteLine("Comando no válido");
+                            EscribirEvento($"Comando no válido recibido: {mensaje}");
+                            break;
+                    }
                 }
             }
         }
 
-        private void ClientDispatcher(Socket sClient)
+        private int Leer()
         {
-            using (sClient)
+            try
             {
-                IPEndPoint ieClient = (IPEndPoint)sClient.RemoteEndPoint;
-                Console.WriteLine($"Cliente conectado:{ieClient.Address} " +
-                $"en puerto {ieClient.Port}");
-                Encoding codificacion = Console.OutputEncoding;
-                using (NetworkStream ns = new NetworkStream(sClient))
-                using (StreamReader sr = new StreamReader(ns, codificacion))
-                using (StreamWriter sw = new StreamWriter(ns, codificacion))
+                if (File.Exists(ruta1))
                 {
-                    sw.AutoFlush = true;
-                    //string welcome = "Elige uno de los comandos";
-                    //sw.WriteLine(welcome);
-                    string msg = "";
-                    //while (msg != null)
-                    //{
-                    try
-                    {
-                        msg = sr.ReadLine();
-                        if (msg != null)
-                        {
-                            if (msg.ToLower() == "time")
-                            {
-                                sw.WriteLine(DateTime.Now.ToLongTimeString());
-                            }
-                            if (msg.ToLower() == "date")
-                            {
-                                sw.WriteLine(DateTime.Now.ToLongDateString());
-                            }
-                            if (msg.ToLower() == "all")
-                            {
-                                sw.WriteLine(DateTime.Now);
-                            }
-                            if (msg.StartsWith("close "))
-                            {
-                                string ruta = $"{Environment.ExpandEnvironmentVariables("%PROGRAMDATA%")}\\password.txt";
-                                string pass = msg.Substring(6);
-                                if (pass.Length < 6)
-                                {
-                                    sw.WriteLine("La contraseña debe tener mínimo 6 caracteres");
-                                    sw.WriteLine("Prueba de nuevo o utiliza o otro comando");
-                                }
-                                else
-                                {
-                                    if (File.Exists(ruta))
-                                    {
-                                        using (StreamReader sw2 = new StreamReader(ruta))
-                                        {
-                                            string p = sw2.ReadLine();
-                                            if (p == pass)
-                                            {
-                                                sw.WriteLine("Password válida, se cierra la conexión");
-                                                
-                                            }
-                                        }
-                                    }
-                                    else
-                                    {
-                                        sw.Write("La ruta no existe");
-                                    }
-
-                                }
-                            }
-
-                        }
-                    }
-                    catch (IOException)
-                    {
-                        msg = null;
-                    }
+                    return int.Parse(File.ReadAllText(ruta1));
                 }
-                Console.WriteLine("Cliente desconectado.\nConexión cerrada");
             }
+            catch (Exception e)
+            {
+                EscribirEvento($"Error al leer archivo de configuración: {e.Message}");
+            }
+
+            return Port;
         }
 
-        private int compruebaPuerto(int[] puertos)
+        private bool CompruebaPuerto(int puerto)
         {
-            int puertoCorrecto = 0;
-            for (int i = 0; i < puertos.Length; i++)
+            try
             {
-                IPEndPoint ie;
                 using (Socket s = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp))
                 {
-                    try
-                    {
-                        ie = new IPEndPoint(IPAddress.Any, puertos[i]);
-                        s.Bind(ie);
-                        puertoCorrecto = puertos[i];
-                    }
-                    catch (SocketException e) when (e.ErrorCode == (int)SocketError.AddressAlreadyInUse)
-                    {
-
-                    }
-                    catch (SocketException e)
-                    {
-
-                    }
+                    s.Bind(new IPEndPoint(IPAddress.Any, puerto));
+                    return true;
                 }
             }
-            return puertoCorrecto;
+            catch
+            {
+                return false;
+            }
+        }
 
+        private void EscribirEvento(string mensaje)
+        {
+            try
+            {
+                if (!EventLog.SourceExists(origen))
+                {
+                    EventLog.CreateEventSource(origen, "Application");
+                }
+                EventLog.WriteEntry(origen, mensaje);
+            }
+            catch (Exception e)
+            {
+                Error(e.Message);
+            }
+        }
+
+        private void Error(string error)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(ruta2));
+            string linea = $"[ERROR] [{DateTime.Now:yyyy/MM/dd HH:mm:ss}] {error}";
+            File.AppendAllText(ruta2, linea + Environment.NewLine);
         }
     }
+
 }
