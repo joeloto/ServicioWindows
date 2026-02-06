@@ -14,7 +14,7 @@ namespace MiPrimerServicio
             ServiceBase[] ServicesToRun;
             ServicesToRun = new ServiceBase[]
             {
-                new MiPrimerServicio()
+                new ServicioFechaHora()
             };
             ServiceBase.Run(ServicesToRun);
         }

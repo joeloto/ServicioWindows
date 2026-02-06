@@ -14,36 +14,27 @@ namespace MiPrimerServicio
     internal class Servidor
     {
         public bool ServerRunning { get; set; } = true;
-
         private Socket s;
-
-        private string origen = "MiPrimerServicio";
-
-        private string ruta1 = Path.Combine(Environment.ExpandEnvironmentVariables("%programdata%"), "MiPrimerServicio", "config.txt");
-
-        private string ruta2 = Path.Combine(Environment.ExpandEnvironmentVariables("%programdata%"), "MiPrimerServicio", "log.txt");
-
+        private string ruta1 = Environment.ExpandEnvironmentVariables("%programdata%") + "\\puerto.txt";
+        private string ruta2 = Environment.ExpandEnvironmentVariables("%programdata%") + "\\log.txt";
         private int Port = 31416;
         public void InitServer()
         {
             int puertoConfig = Leer();
             int puertoFinal = -1;
 
-            if (CompruebaPuerto(puertoConfig))
+            if (comprobarPuerto(puertoConfig))
             {
                 puertoFinal = puertoConfig;
             }
-            else if (CompruebaPuerto(Port))
+            else if (comprobarPuerto(Port))
             {
                 puertoFinal = Port;
             }
             else
             {
-                EscribirEvento("Puerto ocupado. Servicio finalizado.");
                 ServerRunning = false;
             }
-
-            EscribirEvento($"Servidor escuchando en el puerto {puertoFinal}");
 
             s = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             IPEndPoint ie = new IPEndPoint(IPAddress.Any, puertoFinal);
@@ -55,7 +46,7 @@ namespace MiPrimerServicio
                 try
                 {
                     Socket cliente = s.Accept();
-                    Thread hiloCliente = new Thread(() => ClienteDispatcher(cliente));
+                    Thread hiloCliente = new Thread(() => ClientDispatcher(cliente));
                     hiloCliente.IsBackground = true;
                     hiloCliente.Start();
                 }
@@ -64,11 +55,10 @@ namespace MiPrimerServicio
                     ServerRunning = false;
                 }
             }
-
             s.Close();
         }
 
-        private void ClienteDispatcher(Socket cliente)
+        private void ClientDispatcher(Socket cliente)
         {
             using (cliente)
             {
@@ -85,7 +75,7 @@ namespace MiPrimerServicio
                         ServerRunning = false;
                     }
                     Directory.CreateDirectory(Path.GetDirectoryName(ruta2));
-                    string linea = $"[{DateTime.Now:yyyy/MM/dd HH:mm:ss}-@{ieCliente.Address}:{ieCliente.Port}] {mensaje}";
+                    string linea = $"[{DateTime.Now:yyyy/MM/dd HH:mm:ss}] {mensaje}";
                     File.AppendAllText(ruta2, linea + Environment.NewLine);
 
                     switch (mensaje.ToLower())
@@ -104,7 +94,6 @@ namespace MiPrimerServicio
 
                         default:
                             sw.WriteLine("Comando no válido");
-                            EscribirEvento($"Comando no válido recibido: {mensaje}");
                             break;
                     }
                 }
@@ -122,13 +111,12 @@ namespace MiPrimerServicio
             }
             catch (Exception e)
             {
-                EscribirEvento($"Error al leer archivo de configuración: {e.Message}");
-            }
 
+            }
             return Port;
         }
 
-        private bool CompruebaPuerto(int puerto)
+        private bool comprobarPuerto(int puerto)
         {
             try
             {
@@ -142,29 +130,6 @@ namespace MiPrimerServicio
             {
                 return false;
             }
-        }
-
-        private void EscribirEvento(string mensaje)
-        {
-            try
-            {
-                if (!EventLog.SourceExists(origen))
-                {
-                    EventLog.CreateEventSource(origen, "Application");
-                }
-                EventLog.WriteEntry(origen, mensaje);
-            }
-            catch (Exception e)
-            {
-                Error(e.Message);
-            }
-        }
-
-        private void Error(string error)
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(ruta2));
-            string linea = $"[ERROR] [{DateTime.Now:yyyy/MM/dd HH:mm:ss}] {error}";
-            File.AppendAllText(ruta2, linea + Environment.NewLine);
         }
     }
 
