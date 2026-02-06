@@ -75,7 +75,7 @@ namespace MiPrimerServicio
                         ServerRunning = false;
                     }
                     Directory.CreateDirectory(Path.GetDirectoryName(ruta2));
-                    string linea = $"[{DateTime.Now:yyyy/MM/dd HH:mm:ss}] {mensaje}";
+                    string linea = $"[{DateTime.Now:yyyy/MM/dd HH:mm:ss}-@{ieCliente.Address}:{ieCliente.Port}] {mensaje}";
                     File.AppendAllText(ruta2, linea + Environment.NewLine);
 
                     switch (mensaje.ToLower())
